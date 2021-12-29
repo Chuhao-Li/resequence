@@ -1,0 +1,12 @@
+{
+    "email": "a879942613@qq.com", 
+    "out_dir": "test_resequence_output", 
+    "reference_gff": "examples/Ralstonia_solanacearum_EP1_genomic.gff", 
+    "reference_fasta": "examples/Ralstonia_solanacearum_EP1_genomic.fna", 
+    "samples": 
+        [
+            ["sample1", "examples/EP1-23-1_BDMS200005245-1a_1.clean.fq.gz", "examples/EP1-23-1_BDMS200005245-1a_2.clean.fq.gz"]
+        ],
+    "SNV": "true", 
+    "SV": "true"
+}

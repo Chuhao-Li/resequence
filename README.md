@@ -24,7 +24,7 @@ The following python package should have beed install:
 
 to install this package: 
 ``` bash
-git clone resequence
+git clone https://github.com/Chuhao-Li/resequence.git
 ```
 
 # How to run
@@ -64,9 +64,9 @@ To further understand the SNV details, you may want to read the following files:
 - `BWA/sample1/sample1.final.vcf`
 
 To view specific variants in genome browser like igv, you may need the following files: 
-- BWA/sample1/sample1.bam
-- reference/reference.fasta
-- reference/reference.gff
+- `BWA/sample1/sample1.bam`
+- `reference/reference.fasta`
+- `reference/reference.gff`
 
 # Pipeline detail
 1. Align short reads to reference sequence. 

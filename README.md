@@ -31,7 +31,7 @@ git clone https://github.com/Chuhao-Li/resequence.git
 
 1. Edit conf.json
 
-2. Run by the pipeline using example files as input: 
+2. Run the pipeline using example files as input: 
 ``` bash
 cd /path/to/package_directory
 
@@ -42,16 +42,14 @@ The output should be in the `test_resequence_output` directory.
 
 # Input files
 
-- reference genomic sequence file(fasta format)
-- reference annotation file(gff3 format)
-- **cleaned** paired-end short read sequence files(fastq format)
+- reference genomic sequence file (fasta format)
+- reference annotation file (gff3 format)
+- **cleaned** paired-end short read sequence files (fastq format)
 
 # Result files
-After the pipeline finished, you would like to first read the following two files: 
-- `report/SNV/clustered.SNV.txt`
-- `report/SNV/clustered.SNV.html`
-- `report/SV/clustered.SV.txt`
-- `report/SV/clustered.SV.html`
+After the pipeline finished, you would like to first read the following files: 
+- `report/SNV/clustered.SNV.txt` or `report/SNV/clustered.SNV.html`
+- `report/SV/clustered.SV.txt` or `report/SV/clustered.SV.html`
 
 Each kind of variants corresponds to two output files with the same content but different format(html and txt). To make the result more readable, variants are clustered by start position. 
 

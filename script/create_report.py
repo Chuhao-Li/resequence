@@ -1,45 +1,294 @@
 #!/usr/bin/env python3
 
-# 使用pandas把SV输出结果转化为html格式。
-# 在每行末尾增加web_igv的链接。
+# Description: 
+# 1. 在每行末尾增加web_igv snapshot的链接。
+# 2. 输出igv batch script
+# 3. 转化为html表格。
 
-import sys
+# Input: 
+# result file of special_SNV.py or special_SV.py
+
+# Output: 
+# 1. snapshot/snapshot.igv
+# 2. index.html
+
+# To do:
+# 2. SNP报告
+# 整合header
+# 获取bam文件列表
+# 4. multiqc报告
+
 import os
-import json
 import glob
-import pandas as pd
-pd.set_option('display.max_colwidth', -1)
+from Bio import SeqIO
 
-genome = 'reference/reference.fasta'
-gff = 'reference/reference.gff'
+def row2tr(row, thead=False):
+    '''
+    row: a list
+    '''
+    html = ["<tr>"]
+    if thead:
+        cell = "th"
+        for i in row:
+            html.append('<{cell} class="{i}">{i}</{cell}>'.format(cell=cell, i=i))
+        html.append("</tr>")
+    else:
+        cell = "td"
+        for i in row:
+            html.append('<{cell}>{i}</{cell}>'.format(cell=cell, i=i))
+        html.append("</tr>")
+    return html
 
-# 总是展示所用样品的比对信息。
+def get_line_type(line):
+    if line.startswith('-'):
+        line = line.strip('-\n')
+        if not line:
+            return "blank"
+        else:
+            return "chrom"
+    else:
+        return "normal"
+
+
+# Initialize variables
+cwd = os.getcwd()
+outfile = "snapshot/snapshot.igv"
+seq = cwd + "/reference/reference.fasta"
+gff = cwd + "/reference/reference.gff"
 bams = glob.glob("BWA/*/*.bam")
-# /tool/igv/?genome=public/assembly/Dickeya_zeae_EC1_genomic.fna&gff=public/assembly/Dickeya_zeae_EC1_genomic.gff&bams=noodle/2020-08-13_yufan_resequence/BWA/S-15D/S-15D.bam&range=NZ_CP006929.1:1000-1100
-prefix = '/tool/igv/?genome={genome}&gff={gff}&{bam}&range='.format(genome=genome, gff=gff, bam='&'.join(['bams=' + i for i in bams]))
+bams = [cwd+"/"+i for i in bams]
+outdir_base = "snapshot"
+outdir = cwd+"/"+outdir_base
 
-var = sys.argv[1] # SV/SNV
+if not os.path.exists(outdir):
+    os.mkdir(outdir)
+
+# Prepare igv batch script header
+chr_len_map = {}
+for rec in SeqIO.parse(seq, 'fasta'):
+    chr_len_map[rec.id] = len(rec.seq)
+
+out_fh = open(outfile, 'w')
+
+print("new", file=out_fh)
+print("genome", seq, file=out_fh)
+for bam in bams:
+    base = os.path.basename(bam)
+    print("load", bam, file=out_fh)
+    print("viewaspairs", base, file=out_fh)
+    print("collapse", base, file=out_fh)
+print("load", gff, file=out_fh)
+print("expand", os.path.basename(gff), file=out_fh)
+print("snapshotDirectory", outdir, file=out_fh)
+
+####################
+# Output html file #
+####################
+
+# Prepare html header
+document = []
+script_dir = os.path.dirname(os.path.realpath(__file__))
+script_dir = os.path.dirname(script_dir)
+head = open('{}/report_header.html'.format(script_dir)).read()
+document.append(head)
+
+# Prepare html content
+document.append('<body>')
+
+# Prepare header
+document.append('<h1 style="margin-left:150px">重测序变异检测分析报告</h1><hr>')
+
+# Prapare TOC
+toc = '''
+<ul class="verticalnav">
+    <li><a class="current" href="#sv_report">SV</a></li>
+    <li><a href="#snv_report">SNP</a></li>
+</ul>
+'''
+document.append(toc)
+
+document.append('<div style="margin-left:150px; width:65%">')
+
+#####################
+# Prepare SV report #
+#####################
+
+var = "SV"
 infile = 'report/{}/clustered.{}.txt'.format(var, var)
 if not os.path.exists(infile):
     sys.stderr.write("input file not found! \n")
     exit()
+data = open(infile)
 
-a = pd.read_csv(infile, sep='\t')
+# Prepare SV report title
+document.append('<div id="sv_report">')
+document.append('<h2>SV</h2>')
+# Prepare table head
+document.append('<table class="pure-table pure-table-bordered" style="table-layout:fixed; width:100%">')
+document.append('<thead>')
+thead = next(data).rstrip() + "\tdetail"
+document.extend(row2tr(thead.split('\t'), thead=True))
+document.append('</thead>')
 
-pos_list = []
-for i,j in a.iterrows():
+# Prepare table body and igv batch script actions. 
+# 若指定区域，igv最少显示11个碱基。如果指定的区域长度低于10，则不跳转。
+# 若指定单个位点，igv会自动往前后添加20个碱基。如果处于基因组前20或者后20个碱基，则不会跳转。
+# igv显示alignment的最大区间约为69000，大于这个区间，则要求放大才能显示。比较合适的区间是8000左右。
+
+document.append('<tbody>')
+n = 1 # define variant ID
+for line in data:
     if var == "SV":
-        if j['chromosome'].startswith('-'):
-            pos_list.append('')
-            continue
-        pos = j['chromosome'] + ':' + str(int(j['start'])) + '-' + str(int(j['end']))
-    elif var == "SNV":
-        if j['sample'].startswith('-'):
-            pos_list.append('')
-            continue
-        pos = str(j['chromosome']) + ':' + str(int(j['position']))
-    pos_list.append('<a target="_blank" rel="noreferrer" href="{}">view in igv</a>'.format(prefix + pos))
+        lt = get_line_type(line)
+        if lt == "blank":
+            document.append('<tr><td colspan=6 style="background-color: #000000"></td></tr>')
+        elif lt == "chrom":
+            document.append('<tr><td colspan=6 style="background-color: #000000; color: white"><b>{}</b></td></tr>'.format(line.strip("\n-")))
+        else:
+            m = str(n).zfill(6)
+            # region: (chro, start, end)
+            sline = line.rstrip('\n').split('\t')
+            chro, start, end = sline[:3]
+            start = int(start)
+            end = int(end)
+            l = end - start + 1
+            chr_len = chr_len_map[chro]
+            # 两边都扩展500bp
+            start1 = start - 500
+            end1 = end + 500
+            # 若落在左端且小于1000，则取1000。若落在右端且
+            if end1 < 1000:
+                end1 = 1000
+            if start1 > chr_len - 1000:
+                start1 = chr_len - 1000
+            if start1 < 1:
+                start1 = 1
+            if end1 > chr_len:
+                end1 = chr_len
+            l2  = end1 - start1 + 1
+            # 若区间总长大于8000，则取8000，再加两端各1000
+            print("region {chro} {start} {end}".format(chro=chro, start=start, end=end), file=out_fh)
+            if l2 > 8000:
+                left = (start1, start1+1000)
+                mid = (start1+end1)//2
+                middle = (mid-4000, mid+4000)
+                right = (end1-1000, end1)
+                cell = []
+                for part, position in zip("lmr", [left, middle, right]):
+                    s, e = position
+                    print("goto {chro}:{start}-{end}".format(chro=chro, start=s, end=e), file=out_fh)
+                    fig_name = "{}_{}_{}.png".format(var, m, part)
+                    print("snapshot", fig_name, file=out_fh)
+                    cell.append('<a href="{outdir}/{fig_name}" style="padding:0 5px;" target="_blank">{part}</a>'.format(outdir=outdir_base, fig_name=fig_name, part=part))
+                cell = "".join(cell)
+            else:
+                print("goto {chro}:{start}-{end}".format(chro=chro, start=start1, end=end1), file=out_fh)
+                fig_name = "{}_{}.png".format(var, m)
+                print("snapshot", fig_name, file=out_fh)
+                cell = '<a href="{outdir}/{fig_name}" style="padding:0 5px;" target="_blank">m</a>'.format(outdir=outdir_base, fig_name=fig_name)
+            sline[-1] = sline[-1].replace(';', '; ')
+            sline.append(cell)
+            document.extend(row2tr(sline))
+            n += 1
 
-a['igv_link'] = pd.Series(pos_list)
-a = a.fillna('')
-a.to_html('report/{}/clustered.{}.html'.format(var, var), float_format=lambda x: '{:.0f}'.format(x), escape=False)
+document.append('</tbody>')
+document.append('</table>')
+document.append('</div>')
+
+######################
+# Prepare SNV report #
+######################
+
+var = "SNV"
+infile = 'report/{}/clustered.{}.txt'.format(var, var)
+if not os.path.exists(infile):
+    sys.stderr.write("input file not found! \n")
+    exit()
+data = open(infile)
+
+# Prepare SV report title
+document.append('<div id="snv_report">')
+document.append('<h2>SNV</h2>')
+# Prepare table head
+document.append('<table class="pure-table pure-table-bordered" style="table-layout:fixed; overflow: scroll; width:100%">')
+document.append('<thead>')
+thead = next(data).rstrip() + "\tdetail"
+document.extend(row2tr(thead.split('\t'), thead=True))
+document.append('</thead>')
+
+# Prepare table body and igv batch script actions. 
+document.append('<tbody>')
+n = 1 # define variant ID
+for line in data:
+    if var == "SNV":
+        lt = get_line_type(line)
+        if lt == "blank":
+            document.append('<tr><td colspan=7 style="background-color: #000000"></td></tr>')
+        elif lt == "chrom":
+            document.append('<tr><td colspan=7 style="background-color: #000000; color: white"><b>{}</b></td></tr>'.format(line.strip("\n-")))
+        else:
+            m = str(n).zfill(6)
+            # region: (chro, start, end)
+            sline = line.rstrip('\n').split('\t')
+            chro, start = sline[1:3]
+            start = int(start)
+            chr_len = chr_len_map[chro]
+            # 两边都扩展300bp
+            start1 = start - 300
+            end1 = start + 300
+            # 若落在左端且小于600，则取600。若落在右端且
+            if end1 < 600:
+                end1 = 600
+            if start1 > chr_len -600:
+                start1 = chr_len - 600
+            if start1 < 1:
+                start1 = 1
+            if end1 > chr_len:
+                end1 = chr_len
+            l2  = end1 - start1 + 1
+            # 感兴趣的区域，前后各加2，避免遮挡。
+            print("region {chro} {start} {end}".format(chro=chro, start=start-2, end=end+2), file=out_fh)
+            print("goto {chro}:{start}-{end}".format(chro=chro, start=start1, end=end1), file=out_fh)
+            fig_name = "{}_{}.png".format(var, m)
+            print("snapshot", fig_name, file=out_fh)
+            cell = '<a href="{outdir}/{fig_name}" style="padding:0 5px;" target="_blank">m</a>'.format(outdir=outdir_base, fig_name=fig_name)
+            sline[-1] = sline[-1].replace(';', '; ')
+            sline.append(cell)
+            document.extend(row2tr(sline))
+            n += 1
+
+document.append('</tbody>')
+document.append('</table>')
+document.append('</div>') # end of SNV report
+document.append('</div>') # end of tables
+document.append('</body>')
+
+script = '''
+<script>
+    toc = document.querySelector(".verticalnav"); 
+    items = toc.querySelectorAll("a")
+    for (i = 0; i < items.length; i++) {    
+        items[i].onclick = function(){
+            document.querySelector(".current").className = ""; 
+            this.className = "current"; 
+        }
+    }
+
+    //鼠标经过时，单元格里面的文本自动换行。只有遇到空格或者“-”的时候才会换行。
+    tds = document.querySelectorAll("td"); 
+    for (i=0; i<tds.length; i++){
+        tds[i].onmouseover = function(){
+            this.style["white-space"] = "normal";
+        }
+        tds[i].onmouseout = function(){
+            this.style["white-space"] = "nowrap"; 
+        }
+    }
+</script>
+'''
+document.append(script)
+document.append('</html>')
+
+with open('index.html', 'w') as f:
+    for i in document:
+        f.write(i+'\n')

@@ -15,6 +15,10 @@ os.environ['PATH'] = script_path + ':' + os.environ['PATH']
 
 # 样品列表转化成字典，方便取值。
 sample_list = config['samples']
+with open('samples.list', 'w') as f:
+    for s in sample_list:
+        print(s, file=f)
+
 sample_dict = {}
 for name, read1, read2 in sample_list:
     read1 = os.path.abspath(read1)
@@ -179,7 +183,8 @@ rule sv_filter:
 rule cluster_SV:
     input:
         ['delly/{s}/{s}.filtered.vcf'.format(s=s) for s in config['samples']] + \
-                ['cnv/{s}/{s}.del.xls'.format(s=s) for s in config['samples']]
+                ['cnv/{s}/{s}.del.xls'.format(s=s) for s in config['samples']] + \
+                ['cnv/{s}/{s}.high.xls'.format(s=s) for s in config['samples']]
     output:
         'report/SV/clustered.SV.txt', 
         'report/SV/clustered.SV.html'

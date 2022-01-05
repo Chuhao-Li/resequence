@@ -39,7 +39,7 @@
 		.pure-table td,.pure-table th {
 		    border-left: 1px solid #cbcbcb;
 		    border-width: 0 0 0 1px;
-		    font-size: inherit;
+		    font-size: 85%;
 		    margin: 0;
 		    overflow-x: scroll;
 		    overflow-y: auto;
@@ -66,7 +66,7 @@
 		    border-bottom-width: 0;
 		}
                 /*TOC样式*/
-		ul {
+		ul.verticalnav {
 		    margin: 0;
 		    padding: 0;
 		    list-style: none;
@@ -96,20 +96,37 @@
 		}
 
                 /*表格宽度设置*/
-                th.chromosome {
-                    width: 12%;
+                /*SV*/
+                #sv_report th.chromosome {
+                    width: 10%;
                 }
-                th.start, th.end, th.length, th.position {
-                    width: 12%;
+                #sv_report th.start, #sv_report th.end, #sv_report th.length, #sv_report th.sv_type{
+                    width: 10%;
                 }
-                th.others, th.annotation {
+                #sv_report th.others {
+                    width: 40%; 
+                }
+                #sv_report th.detail {
+                    width:10%;
+                }
+                /*SNV*/
+                #snv_report th.chromosome {
+                    width: 10%;
+                }
+                #snv_report th.position {
+                    width: 10%;
+                }
+                #snv_report th.annotation {
                     width: 40%; 
                 }
                 th.detail {
-                    width:12%;
+                    width:10%;
                 }
                 th.REF, th.ALT {
-                    width:6%;
+                    width:5%;
+                }
+                th.sample {
+                    width:10%
                 }
                 /*scrollbar设置*/
                 ::-webkit-scrollbar {

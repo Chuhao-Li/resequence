@@ -123,6 +123,28 @@ data = open(infile)
 # Prepare SV report title
 document.append('<div id="sv_report">')
 document.append('<h2>SV</h2>')
+document.append('''<p>每个样品都与对应的参考序列进行了比对，使用samtools得到低覆盖度区域(使用source=samtools标注的SV)，使用delly获得了SVs(使用source=delly标注的SV)。
+按照在参考基因组序列上的位置对SVs进行了排列，间隔大于100bp的用空行隔开形成多个小组。同一个SV应该落在同一个小组中。
+如果某个位置上，所有样品都有同样的SV，那可能是野生型本来就有的突变。</p>
+<p>各列的含义：</p>
+<ol>
+<li>chromosome: 变异所在的染色体ID</li>
+<li>start: 变异起始位点</li>
+<li>end: 变异终止位点</li>
+<li>length: 变异长度</li>
+<li>sv_type: 变异类型除了vcf文件定义的变异类型外，还添加了LOW和HIGH两种，分别代表低reads深度区域和高reads深度区域。</li>
+<li>others: 其他信息。
+<ul>
+<li>sample: 样品名</li>
+<li>source: 变异检测所用工具（delly/samtools）</li>
+<li>PE: 如果是delly，有PE属性，代表支持该变异的reads数</li>
+<li>depth: 如果是samtools，有depth参数，代表该区域的平均reads深度</li>
+</ul>
+</li>
+<li>detail: 包含了变异对应基因组区域的igv截图。长度大于8000的变异，只对左端(l)、中间(m)和右端(r)进行截图。</li>
+</ol>
+''')
+
 # Prepare table head
 document.append('<table class="pure-table pure-table-bordered" style="table-layout:fixed; width:100%">')
 document.append('<thead>')
@@ -141,9 +163,9 @@ for line in data:
     if var == "SV":
         lt = get_line_type(line)
         if lt == "blank":
-            document.append('<tr><td colspan=6 style="background-color: #000000"></td></tr>')
+            document.append('<tr><td colspan=7 style="background-color: #000000"></td></tr>')
         elif lt == "chrom":
-            document.append('<tr><td colspan=6 style="background-color: #000000; color: white"><b>{}</b></td></tr>'.format(line.strip("\n-")))
+            document.append('<tr><td colspan=7 style="background-color: #000000; color: white"><b>{}</b></td></tr>'.format(line.strip("\n-")))
         else:
             m = str(n).zfill(6)
             # region: (chro, start, end)
@@ -206,9 +228,31 @@ if not os.path.exists(infile):
     exit()
 data = open(infile)
 
-# Prepare SV report title
+# Prepare SNV report title
 document.append('<div id="snv_report">')
 document.append('<h2>SNV</h2>')
+document.append('''<p>结果说明： 每个样品都与对应的参考序列进行了比对，使用bcftools获得了SNVs。
+按照在参考基因组序列上的位置对SNVs进行了排列，间隔大于100bp的用空行隔开形成多个小组。同一个SNV应该落在同一个小组中。
+如果某个位置上，所有样品都有同样的SNV，那可能是野生型本来就有的突变。</p>
+<p>各列的含义：</p>
+<ol>
+<li>sample: 样品名</li>
+<li>chromosome: 变异所在染色体ID</li>
+<li>position: 变异位置</li>
+<li>REF: 参考基因组上对应位置的碱基</li>
+<li>ALT: 样品基因组上对应位置的碱基信息</li>
+<li>annotation：变异注释信息。
+<ul>
+<li>SNVType: SNV变异类型，分intergenic、synonymous、nonsynonymous几种。</li>
+<li>ChangeGene: 变异所在基因</li>
+<li>SNVScore: bcftools计算出来的变异分数，越高分代表SNV越可靠。</li>
+<li>readDepth: SNV所在位点的reads深度</li>
+<li>product: 变异所在基因的注释</li>
+</ul></li>
+<li>detail: 包含了变异对应基因组区域的igv截图。</li>
+</ol>
+''')
+
 # Prepare table head
 document.append('<table class="pure-table pure-table-bordered" style="table-layout:fixed; overflow: scroll; width:100%">')
 document.append('<thead>')
@@ -289,6 +333,6 @@ script = '''
 document.append(script)
 document.append('</html>')
 
-with open('index.html', 'w') as f:
+with open('resequence.html', 'w') as f:
     for i in document:
         f.write(i+'\n')
